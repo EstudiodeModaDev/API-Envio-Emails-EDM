@@ -58,7 +58,7 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'api-ch'
+          app-name: 'api-envio-correos'
           slot-name: 'Production'
           package: .
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_0617136E10D041B7AE47E565436B3F49 }}
