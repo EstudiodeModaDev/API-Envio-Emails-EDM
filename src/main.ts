@@ -17,6 +17,8 @@ async function bootstrap() {
     origin: (origin, callback) => {
       const allowedOrigins = [
         'http://localhost:5173',
+        'https://estudiodemodapage.netlify.app/',
+        
       ];
 
       if (!origin || allowedOrigins.includes(origin)) {
