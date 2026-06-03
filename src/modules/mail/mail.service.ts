@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClientSecretCredential } from '@azure/identity';
 import { Client } from '@microsoft/microsoft-graph-client';
@@ -40,18 +40,16 @@ export class MailService {
     const isAllowed = normalizedSender ? this.isAllowedMail(normalizedSender) : true;
 
     if (!isAllowed) {
-      throw new Error('El correo del remitente no está permitido');
+      throw new ForbiddenException('El correo del remitente no está permitido');
     }
 
     try {
       const res = await graphClient
       .api(`/users/${normalizedSender}/sendMail`)
       .post(mailData);
-      console.log('Correo enviado:', res);
       return res;
     } catch (error) {
-      console.error('Error al enviar correo:', error);
-      throw error;
+      throw new BadRequestException('Error al enviar correo');
     } 
   }
 
