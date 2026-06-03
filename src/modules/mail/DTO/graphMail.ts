@@ -2,15 +2,15 @@
 import {ArrayMinSize, IsArray, IsBoolean, IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, ValidateNested,} from 'class-validator';
 import { Type } from 'class-transformer';
 
+export class EmailAddressDto {
+  @IsEmail()
+  address!: string;
+}
+
 export class GraphRecipientDto {
   @ValidateNested()
   @Type(() => EmailAddressDto)
   emailAddress!: EmailAddressDto;
-}
-
-export class EmailAddressDto {
-  @IsEmail()
-  address!: string;
 }
 
 export class GraphAttachmentDto {
