@@ -53,27 +53,22 @@ export class MailService {
   }
 
   async testConnection() {
-    const graphClient = await this.createGraphClient();
     const mailbox = this.config
       .getOrThrow<string>('MAIL_FROM')
       .trim()
       .toLowerCase();
 
     try {
-      const response = await graphClient
-        .api(`/users/${mailbox}`)
-        .select(['id', 'mail', 'userPrincipalName'])
-        .get();
+      await this.createGraphClient();
 
       return {
         ok: true,
-        message: 'Conexion con Microsoft Graph verificada correctamente',
+        message: 'Autenticacion con Microsoft Graph verificada correctamente',
         mailbox,
-        userPrincipalName: response.userPrincipalName ?? null,
       };
     } catch {
       throw new ServiceUnavailableException(
-        'No fue posible validar la conexion con Microsoft Graph',
+        'No fue posible autenticar contra Microsoft Graph',
       );
     }
   }
