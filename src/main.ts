@@ -13,22 +13,7 @@ async function bootstrap() {
     }),
   );
 
-  app.enableCors({
-    origin: (origin, callback) => {
-      const allowedOrigins = [
-        'http://localhost:5173',
-        'https://estudiodemodapage.netlify.app',
-        'https://estudiodemoda.co/'
-      ];
-
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-
-      callback(new Error('Not allowed by CORS'));
-    },
-  });
+  app.enableCors();
 
   await app.listen(process.env.PORT ?? 3000);
 }
