@@ -8,11 +8,6 @@ export class MailController {
 
   @Post('send')
   async send(@Body() body: SendMailRequestDto) {
-    await this.mailService.sendMail(body);
-
-    return {
-      ok: true,
-      message: 'Correo enviado correctamente',
-    };
+    return this.mailService.sendMail(body);
   }
 }

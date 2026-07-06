@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -37,9 +38,32 @@ export class MailService {
     }
 
     try {
-      return await graphClient.api(`/users/${normalizedSender}/sendMail`).post(mailData);
-    } catch {
-      throw new BadRequestException('Error al enviar correo');
+      const draftMessage = await graphClient
+        .api(`/users/${normalizedSender}/messages`)
+        .post(mailData.message);
+
+      await graphClient
+        .api(`/users/${normalizedSender}/messages/${draftMessage.id}/send`)
+        .post({});
+
+      return {
+        ok: true,
+        message: 'Correo enviado correctamente',
+        graph: {
+          id: draftMessage.id,
+          internetMessageId: draftMessage.internetMessageId ?? null,
+          conversationId: draftMessage.conversationId ?? null,
+          webLink: draftMessage.webLink ?? null,
+          createdDateTime: draftMessage.createdDateTime ?? null,
+          lastModifiedDateTime: draftMessage.lastModifiedDateTime ?? null,
+          subject: draftMessage.subject ?? mailData.message.subject,
+        },
+      };
+    } catch (error: any) {
+      this.handleGraphError(
+        error,
+        `No fue posible enviar el correo usando el buzon ${normalizedSender}`,
+      );
     }
   }
 
@@ -59,16 +83,26 @@ export class MailService {
       .toLowerCase();
 
     try {
-      await this.createGraphClient();
+      const graphClient = await this.createGraphClient();
+      const mailboxInfo = await graphClient
+        .api(`/users/${mailbox}?$select=id,mail,userPrincipalName`)
+        .get();
 
       return {
         ok: true,
-        message: 'Autenticacion con Microsoft Graph verificada correctamente',
+        message:
+          'Autenticacion y acceso al buzon verificados correctamente en Microsoft Graph',
         mailbox,
+        mailboxInfo: {
+          id: mailboxInfo.id ?? null,
+          mail: mailboxInfo.mail ?? null,
+          userPrincipalName: mailboxInfo.userPrincipalName ?? null,
+        },
       };
-    } catch {
-      throw new ServiceUnavailableException(
-        'No fue posible autenticar contra Microsoft Graph',
+    } catch (error: any) {
+      this.handleGraphError(
+        error,
+        `No fue posible validar el acceso al buzon ${mailbox}`,
       );
     }
   }
@@ -93,6 +127,61 @@ export class MailService {
     return Client.init({
       authProvider: (done) => {
         done(null, token.token);
+      },
+    });
+  }
+
+  private handleGraphError(error: any, fallbackMessage: string): never {
+    const statusCode = error?.statusCode ?? error?.code ?? 500;
+    const graphCode = error?.body?.error?.code ?? error?.code ?? null;
+    const graphMessage = error?.body?.error?.message ?? error?.message ?? null;
+
+    if (
+      statusCode === 403 ||
+      graphCode === 'ErrorAccessDenied' ||
+      graphMessage?.toLowerCase().includes('access denied')
+    ) {
+      throw new ForbiddenException({
+        message: fallbackMessage,
+        detail:
+          'Microsoft Graph rechazo la operacion por permisos insuficientes sobre el buzon. Verifica que la app tenga permisos de aplicacion Mail.ReadWrite y Mail.Send con admin consent, y que el buzon exista y este habilitado.',
+        graph: {
+          code: graphCode,
+          message: graphMessage,
+        },
+      });
+    }
+
+    if (statusCode === 404 || graphCode === 'ResourceNotFound') {
+      throw new NotFoundException({
+        message: fallbackMessage,
+        detail:
+          'El buzon indicado no existe en Microsoft 365 o no es accesible con el identificador enviado.',
+        graph: {
+          code: graphCode,
+          message: graphMessage,
+        },
+      });
+    }
+
+    if (statusCode === 401 || graphCode === 'InvalidAuthenticationToken') {
+      throw new ServiceUnavailableException({
+        message: fallbackMessage,
+        detail:
+          'Microsoft Graph rechazo el token de acceso. Revisa TENANT_ID, CLIENT_ID, CLIENT_SECRET y el admin consent de la aplicacion.',
+        graph: {
+          code: graphCode,
+          message: graphMessage,
+        },
+      });
+    }
+
+    throw new BadRequestException({
+      message: fallbackMessage,
+      detail: graphMessage ?? 'Error no controlado al invocar Microsoft Graph',
+      graph: {
+        code: graphCode,
+        message: graphMessage,
       },
     });
   }
